@@ -1,0 +1,93 @@
+//
+// executor
+// ~~~~~~~~
+// Asynchronous model and generic executor utility functions.
+//
+// Copyright (c) 2014-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
+
+#ifndef EXPERIMENTAL_EXECUTOR_HEADER
+#define EXPERIMENTAL_EXECUTOR_HEADER
+
+#include <experimental/bits/associated_allocator.h>
+#include <memory>
+#include <type_traits>
+
+namespace std {
+namespace experimental {
+namespace net {
+inline namespace v1 {
+
+// Trait used to obtain an object's associated allocator.
+
+template <class _T, class _Alloc = allocator<void>>
+struct associated_allocator
+{
+  typedef typename __associated_allocator<_T, _Alloc>::_Type type;
+
+  static type get(const _T& __t, const _Alloc& __a = _Alloc()) noexcept
+  {
+    return __associated_allocator<_T, _Alloc>::_Get(__t, __a);
+  }
+};
+
+template <class _T, class _Alloc = allocator<void>>
+using associated_allocator_t = typename associated_allocator<_T, _Alloc>::type;
+
+// Helper function to obtain an associated allocator.
+
+template <class _T>
+  associated_allocator_t<_T> get_associated_allocator(const _T& __t);
+template <class _T, class _Alloc>
+  associated_allocator_t<_T, _Alloc>
+    get_associated_allocator(const _T& __t, const _Alloc& __a);
+
+// Trait to determine the return type and value of an asynchronous operation.
+
+template <class _CompletionToken, class _Signature>
+class async_result
+{
+public:
+  typedef _CompletionToken completion_handler_type;
+  typedef void return_type;
+  explicit async_result(completion_handler_type&) {}
+  async_result(const async_result&) = delete;
+  async_result& operator=(const async_result&) = delete;
+  void get() {}
+};
+
+// Helper to determine the return type and value of an asynchronous operation.
+
+template <class _CompletionToken, class _Signature>
+struct async_completion
+{
+  typedef typename async_result<typename decay<_CompletionToken>::type,
+    _Signature>::completion_handler_type completion_handler_type;
+
+  explicit async_completion(_CompletionToken& __token)
+    : completion_handler(static_cast<typename conditional<
+        is_same<_CompletionToken, completion_handler_type>::value,
+        completion_handler_type&, _CompletionToken&&>::type>(__token)),
+      result(completion_handler) {}
+
+  async_completion(const async_completion&) = delete;
+  async_completion& operator=(const async_completion&) = delete;
+
+  typename conditional<
+    is_same<_CompletionToken, completion_handler_type>::value,
+    completion_handler_type&, completion_handler_type>::type completion_handler;
+
+  async_result<typename decay<_CompletionToken>::type, _Signature> result;
+};
+
+} // inline namespace v1
+} // namespace net
+} // namespace experimental
+} // namespace std
+
+#include <experimental/bits/get_associated_allocator.h>
+
+#endif
